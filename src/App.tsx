@@ -56,14 +56,14 @@ function App() {
     name: 'Aguan',
     role: 'Team Lead',
     description: 'Responsible for being late and being late',
-    image: '/ayxan.jpg'
+    image: './ayxan.jpg'
   };
 
   const teamMembers = [
-    { id: 2, name: 'Habibi', role: 'Hairdresser', description: 'Always cold, work as part-time hair washer', image: '/alex.jpeg' },
-    { id: 3, name: '1 more shot and we go girl', role: 'Team building somethinh', description: 'Creative idea generator', image: '/katya.jpeg' },
-    { id: 4, name: 'Lily', role: 'Crazy Cat Lady', description: 'Meow meow meow meow meow meow.....', image: '/lily.jpeg' },
-    { id: 5, name: 'Lubos', role: 'Professional Bodyguard', description: 'Can carry all of us with one hand', image: '/lubos.jpeg' },
+    { id: 2, name: 'Habibi', role: 'Hairdresser', description: 'Always cold, work as part-time hair washer', image: './alex.jpeg' },
+    { id: 3, name: '1 more shot and we go girl', role: 'Team building somethinh', description: 'Creative idea generator', image: './katya.jpeg' },
+    { id: 4, name: 'Lily', role: 'Crazy Cat Lady', description: 'Meow meow meow meow meow meow.....', image: './lily.jpeg' },
+    { id: 5, name: 'Lubos', role: 'Professional Bodyguard', description: 'Can carry all of us with one hand', image: './lubos.jpeg' },
   ];
 
   const toggleCard = (id: number) => {

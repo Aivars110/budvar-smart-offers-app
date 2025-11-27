@@ -165,52 +165,67 @@ function App() {
       const scratch = (x: number, y: number) => {
         ctx.globalCompositeOperation = 'destination-out';
         ctx.beginPath();
-        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.arc(x, y, 25, 0, Math.PI * 2);
         ctx.fill();
       };
 
-      const handleStart = (e: MouseEvent | TouchEvent) => {
-        isDrawing = true;
+      const getCoordinates = (e: MouseEvent | TouchEvent) => {
         const rect = canvas.getBoundingClientRect();
-        const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-        const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+        };
+      };
+
+      const handleStart = (e: MouseEvent | TouchEvent) => {
+        e.preventDefault();
+        isDrawing = true;
+        const { x, y } = getCoordinates(e);
         scratch(x, y);
       };
 
       const handleMove = (e: MouseEvent | TouchEvent) => {
         if (!isDrawing) return;
-        const rect = canvas.getBoundingClientRect();
-        const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-        const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+        e.preventDefault();
+        const { x, y } = getCoordinates(e);
         scratch(x, y);
 
-        // Check if scratched enough
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const pixels = imageData.data;
-        let transparent = 0;
-        for (let i = 3; i < pixels.length; i += 4) {
-          if (pixels[i] === 0) transparent++;
-        }
-        if (transparent / (pixels.length / 4) > 0.5) {
-          setIsScratched(true);
-          confetti({
-            particleCount: 150,
-            spread: 100,
-            origin: { y: 0.5 }
-          });
+        // Check if scratched enough (less frequent checking for performance)
+        if (Math.random() > 0.7) {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const pixels = imageData.data;
+          let transparent = 0;
+          for (let i = 3; i < pixels.length; i += 4) {
+            if (pixels[i] === 0) transparent++;
+          }
+          if (transparent / (pixels.length / 4) > 0.5 && !isScratched) {
+            setIsScratched(true);
+            confetti({
+              particleCount: 150,
+              spread: 100,
+              origin: { y: 0.5 }
+            });
+          }
         }
       };
 
-      const handleEnd = () => {
+      const handleEnd = (e: MouseEvent | TouchEvent) => {
+        e.preventDefault();
         isDrawing = false;
       };
 
       canvas.addEventListener('mousedown', handleStart);
       canvas.addEventListener('mousemove', handleMove);
       canvas.addEventListener('mouseup', handleEnd);
-      canvas.addEventListener('touchstart', handleStart);
-      canvas.addEventListener('touchmove', handleMove);
-      canvas.addEventListener('touchend', handleEnd);
+      canvas.addEventListener('touchstart', handleStart, { passive: false });
+      canvas.addEventListener('touchmove', handleMove, { passive: false });
+      canvas.addEventListener('touchend', handleEnd, { passive: false });
 
       return () => {
         canvas.removeEventListener('mousedown', handleStart);
@@ -221,7 +236,7 @@ function App() {
         canvas.removeEventListener('touchend', handleEnd);
       };
     }
-  }, [showScratchCard]);
+  }, [showScratchCard, isScratched]);
 
   const handleRedeemClick = (offer: any) => {
     confetti({

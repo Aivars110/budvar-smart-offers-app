@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { QRCodeSVG } from 'qrcode.react';
+import confetti from 'canvas-confetti';
 
 function App() {
   const [activeTab, setActiveTab] = useState('offers');
   const [selectedOffer, setSelectedOffer] = useState<any>(null);
   const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
   const [showVideo, setShowVideo] = useState(false);
+  const [shakeOffer, setShakeOffer] = useState<any>(null);
+  const [showScratchCard, setShowScratchCard] = useState(false);
+  const [isScratched, setIsScratched] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lastShake = useRef(0);
 
   const offers = [
     {
@@ -78,6 +84,154 @@ function App() {
     });
   };
 
+  // Shake detection
+  useEffect(() => {
+    const handleMotion = (event: DeviceMotionEvent) => {
+      const acceleration = event.accelerationIncludingGravity;
+      if (!acceleration) return;
+
+      const { x, y, z } = acceleration;
+      const totalAcceleration = Math.sqrt((x || 0) ** 2 + (y || 0) ** 2 + (z || 0) ** 2);
+
+      // Detect shake (threshold ~30)
+      if (totalAcceleration > 30) {
+        const now = Date.now();
+        if (now - lastShake.current > 3000) {
+          lastShake.current = now;
+          triggerShakeOffer();
+        }
+      }
+    };
+
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+      // iOS 13+ requires permission
+      (DeviceMotionEvent as any).requestPermission()
+        .then((response: string) => {
+          if (response === 'granted') {
+            window.addEventListener('devicemotion', handleMotion);
+          }
+        })
+        .catch(console.error);
+    } else {
+      // Android and older iOS
+      window.addEventListener('devicemotion', handleMotion);
+    }
+
+    return () => {
+      window.removeEventListener('devicemotion', handleMotion);
+    };
+  }, []);
+
+  const triggerShakeOffer = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+
+    setShakeOffer({
+      id: 999,
+      title: 'SHAKE BONUS!',
+      product: 'Budvar Premium 500ml',
+      discount: '50%',
+      oldPrice: 50,
+      newPrice: 25,
+      valid: 'Next 30 minutes only!',
+      location: 'Any partner location nearby',
+      badge: 'Shake Reward'
+    });
+  };
+
+  // Scratch card initialization
+  useEffect(() => {
+    if (showScratchCard && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      canvas.width = 300;
+      canvas.height = 200;
+
+      // Draw scratch surface
+      ctx.fillStyle = '#D4AF37';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Scratch to reveal!', canvas.width / 2, canvas.height / 2);
+
+      let isDrawing = false;
+
+      const scratch = (x: number, y: number) => {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath();
+        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.fill();
+      };
+
+      const handleStart = (e: MouseEvent | TouchEvent) => {
+        isDrawing = true;
+        const rect = canvas.getBoundingClientRect();
+        const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+        const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+        scratch(x, y);
+      };
+
+      const handleMove = (e: MouseEvent | TouchEvent) => {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+        const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+        scratch(x, y);
+
+        // Check if scratched enough
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+        let transparent = 0;
+        for (let i = 3; i < pixels.length; i += 4) {
+          if (pixels[i] === 0) transparent++;
+        }
+        if (transparent / (pixels.length / 4) > 0.5) {
+          setIsScratched(true);
+          confetti({
+            particleCount: 150,
+            spread: 100,
+            origin: { y: 0.5 }
+          });
+        }
+      };
+
+      const handleEnd = () => {
+        isDrawing = false;
+      };
+
+      canvas.addEventListener('mousedown', handleStart);
+      canvas.addEventListener('mousemove', handleMove);
+      canvas.addEventListener('mouseup', handleEnd);
+      canvas.addEventListener('touchstart', handleStart);
+      canvas.addEventListener('touchmove', handleMove);
+      canvas.addEventListener('touchend', handleEnd);
+
+      return () => {
+        canvas.removeEventListener('mousedown', handleStart);
+        canvas.removeEventListener('mousemove', handleMove);
+        canvas.removeEventListener('mouseup', handleEnd);
+        canvas.removeEventListener('touchstart', handleStart);
+        canvas.removeEventListener('touchmove', handleMove);
+        canvas.removeEventListener('touchend', handleEnd);
+      };
+    }
+  }, [showScratchCard]);
+
+  const handleRedeemClick = (offer: any) => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+    setSelectedOffer(offer);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-white">
       {/* Header */}
@@ -122,6 +276,72 @@ function App() {
               <p className="text-xs sm:text-sm text-gray-700">
                 AI-powered offers based on your preferences, location, and behavior
               </p>
+            </div>
+
+            {/* Shake to Win */}
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-4 sm:p-6 text-white shadow-xl">
+              <h3 className="text-lg sm:text-xl font-bold mb-2">🎲 Shake Your Phone!</h3>
+              <p className="text-sm sm:text-base mb-3">
+                Shake your device to reveal a surprise bonus offer!
+              </p>
+              <div className="bg-white/20 rounded-lg p-2 text-xs sm:text-sm">
+                💡 Tip: Works best on mobile devices
+              </div>
+            </div>
+
+            {/* Scratch Card */}
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl overflow-hidden">
+              <div className="bg-gradient-to-r from-orange-500 to-red-500 p-3 sm:p-4">
+                <h3 className="text-lg sm:text-xl font-bold text-white">🎰 Mystery Scratch Card</h3>
+                <p className="text-white/90 text-xs sm:text-sm">Scratch to reveal your prize!</p>
+              </div>
+              <div className="p-4 sm:p-6">
+                {!showScratchCard ? (
+                  <button
+                    onClick={() => setShowScratchCard(true)}
+                    className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm sm:text-base"
+                  >
+                    🎁 Reveal Scratch Card
+                  </button>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center">
+                        <p className="text-3xl sm:text-4xl font-bold text-budvar-gold">30% OFF</p>
+                        <p className="text-base sm:text-lg font-semibold text-gray-700 mt-2">
+                          Budvar Dark 500ml
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">Valid today only!</p>
+                      </div>
+                    </div>
+                    <canvas
+                      ref={canvasRef}
+                      className="w-full rounded-lg cursor-pointer touch-none"
+                      style={{ maxWidth: '300px', height: '200px', margin: '0 auto', display: 'block' }}
+                    />
+                    {isScratched && (
+                      <button
+                        onClick={() => {
+                          handleRedeemClick({
+                            id: 888,
+                            title: 'Scratch Card Prize',
+                            product: 'Budvar Dark 500ml',
+                            discount: '30%',
+                            oldPrice: 44,
+                            newPrice: 31,
+                            valid: 'Today only',
+                            location: 'Any partner location',
+                            badge: 'Scratch Winner'
+                          });
+                        }}
+                        className="w-full bg-gradient-to-r from-budvar-gold to-budvar-gold-dark text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all mt-4 text-sm sm:text-base"
+                      >
+                        🎫 Redeem Prize
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {offers.map((offer) => (
@@ -179,7 +399,7 @@ function App() {
 
                   {/* Redeem Button */}
                   <button
-                    onClick={() => setSelectedOffer(offer)}
+                    onClick={() => handleRedeemClick(offer)}
                     className="w-full bg-gradient-to-r from-budvar-gold to-budvar-gold-dark text-white font-bold py-3 sm:py-4 rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all text-sm sm:text-base"
                   >
                     🎫 Redeem with QR Code
@@ -586,6 +806,43 @@ function App() {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Shake Bonus Modal */}
+      {shakeOffer && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-3 sm:p-4" onClick={() => setShakeOffer(null)}>
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl sm:rounded-2xl p-6 sm:p-8 w-full mx-3 sm:max-w-md animate-bounce" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center text-white">
+              <h3 className="text-2xl sm:text-3xl font-bold mb-2">🎉 SHAKE BONUS! 🎉</h3>
+              <p className="text-3xl sm:text-4xl font-bold my-4">-{shakeOffer.discount}</p>
+              <p className="text-xl sm:text-2xl font-semibold mb-2">{shakeOffer.product}</p>
+              <div className="bg-white/20 rounded-lg p-4 my-4">
+                <p className="text-sm mb-1 text-white/80">Original Price</p>
+                <p className="text-lg line-through">{shakeOffer.oldPrice} CZK</p>
+                <p className="text-sm mt-2 mb-1 text-white/80">Your Price</p>
+                <p className="text-3xl sm:text-4xl font-bold">{shakeOffer.newPrice} CZK</p>
+              </div>
+              <p className="text-xs sm:text-sm mb-4">
+                ⏰ {shakeOffer.valid}
+              </p>
+              <button
+                onClick={() => {
+                  handleRedeemClick(shakeOffer);
+                  setShakeOffer(null);
+                }}
+                className="w-full bg-white text-purple-600 font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all mb-2"
+              >
+                🎫 Redeem Now!
+              </button>
+              <button
+                onClick={() => setShakeOffer(null)}
+                className="w-full bg-white/20 text-white font-bold py-2 rounded-xl hover:bg-white/30 transition-all text-sm"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -637,6 +637,39 @@ function App() {
               </div>
             </div>
 
+            {/* AI Prompt Example */}
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 sm:p-6 border-2 border-purple-200">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">
+                🤖 Key AI Prompt Example
+              </h3>
+              <p className="text-gray-700 mb-3 text-xs sm:text-sm">
+                This is the prompt we used to analyze the business case with AI:
+              </p>
+              <div className="bg-gray-900 rounded-lg p-3 sm:p-4 text-xs sm:text-sm text-green-400 font-mono overflow-x-auto">
+                <p className="text-purple-400 mb-2">PROMPT:</p>
+                <p className="mb-2">I need help analyzing a business case for Budvar (Czech beer company) looking to implement AI-based dynamic pricing by 2030. Can you create 3 realistic scenarios based on this data?</p>
+                <p className="text-yellow-400 mt-3 mb-1">Current situation (2024):</p>
+                <p>- Profit margin: 25%</p>
+                <p>- Price elasticity: -1.4</p>
+                <p>- 30% of sales are through discounts (low profitability)</p>
+                <p>- AI implementation cost: 10 million CZK</p>
+                <p className="text-yellow-400 mt-3 mb-1">Target for 2030:</p>
+                <p>- Profit margin: 28% with dynamic pricing</p>
+                <p>- Reduce discount sales to 15% through better targeting</p>
+                <p className="text-yellow-400 mt-3 mb-1">Key challenges to consider:</p>
+                <p>- Budvar is seen as a premium brand - too many discounts could hurt the image</p>
+                <p>- Dynamic pricing might cause public backlash if prices vary too much</p>
+                <p>- Need constant data on competitors, weather, seasonality for AI to work</p>
+                <p>- ESG pressures and potential employee pushback</p>
+                <p className="text-yellow-400 mt-3 mb-1">Please give me:</p>
+                <p>1. List 3-5 main factors (risks & opportunities) that will affect this transition</p>
+                <p>2. Three scenarios for 2030:</p>
+                <p className="pl-4">- Optimistic: What happens if everything goes well?</p>
+                <p className="pl-4">- Realistic: Most likely outcome</p>
+                <p className="pl-4">- Pessimistic: What if things go wrong?</p>
+              </div>
+            </div>
+
             {/* Free Beer Button */}
             <div className="bg-gradient-to-r from-budvar-gold to-budvar-gold-dark rounded-xl p-6 text-center shadow-xl">
               <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">🍺 Special Offer!</h3>

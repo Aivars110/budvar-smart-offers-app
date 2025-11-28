@@ -11,8 +11,9 @@ function App() {
   const [shakeOffer, setShakeOffer] = useState<any>(null);
   const [showScratchCard, setShowScratchCard] = useState(false);
   const [isScratched, setIsScratched] = useState(false);
+  const [hasShaken, setHasShaken] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const lastShake = useRef(0);
 
   const offers = [
     {
@@ -86,7 +87,11 @@ function App() {
 
   // Shake detection
   useEffect(() => {
+    if (hasShaken) return; // Only allow shake once per session
+
     const handleMotion = (event: DeviceMotionEvent) => {
+      if (hasShaken) return;
+
       const acceleration = event.accelerationIncludingGravity;
       if (!acceleration) return;
 
@@ -95,11 +100,7 @@ function App() {
 
       // Detect shake (threshold ~30)
       if (totalAcceleration > 30) {
-        const now = Date.now();
-        if (now - lastShake.current > 3000) {
-          lastShake.current = now;
-          triggerShakeOffer();
-        }
+        triggerShakeOffer();
       }
     };
 
@@ -120,9 +121,11 @@ function App() {
     return () => {
       window.removeEventListener('devicemotion', handleMotion);
     };
-  }, []);
+  }, [hasShaken]);
 
   const triggerShakeOffer = () => {
+    setHasShaken(true);
+
     confetti({
       particleCount: 100,
       spread: 70,
@@ -142,101 +145,73 @@ function App() {
     });
   };
 
-  // Scratch card initialization
+  // Scratch card initialization - just draw the gold layer
   useEffect(() => {
-    if (showScratchCard && canvasRef.current) {
+    if (showScratchCard && canvasRef.current && !isScratched) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      canvas.width = 300;
-      canvas.height = 200;
-
-      // Draw scratch surface
       ctx.fillStyle = '#D4AF37';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, 300, 200);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 20px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText('Scratch to reveal!', canvas.width / 2, canvas.height / 2);
-
-      let isDrawing = false;
-
-      const scratch = (x: number, y: number) => {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.beginPath();
-        ctx.arc(x, y, 25, 0, Math.PI * 2);
-        ctx.fill();
-      };
-
-      const getCoordinates = (e: MouseEvent | TouchEvent) => {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-        return {
-          x: (clientX - rect.left) * scaleX,
-          y: (clientY - rect.top) * scaleY
-        };
-      };
-
-      const handleStart = (e: MouseEvent | TouchEvent) => {
-        e.preventDefault();
-        isDrawing = true;
-        const { x, y } = getCoordinates(e);
-        scratch(x, y);
-      };
-
-      const handleMove = (e: MouseEvent | TouchEvent) => {
-        if (!isDrawing) return;
-        e.preventDefault();
-        const { x, y } = getCoordinates(e);
-        scratch(x, y);
-
-        // Check if scratched enough (less frequent checking for performance)
-        if (Math.random() > 0.7) {
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const pixels = imageData.data;
-          let transparent = 0;
-          for (let i = 3; i < pixels.length; i += 4) {
-            if (pixels[i] === 0) transparent++;
-          }
-          if (transparent / (pixels.length / 4) > 0.5 && !isScratched) {
-            setIsScratched(true);
-            confetti({
-              particleCount: 150,
-              spread: 100,
-              origin: { y: 0.5 }
-            });
-          }
-        }
-      };
-
-      const handleEnd = (e: MouseEvent | TouchEvent) => {
-        e.preventDefault();
-        isDrawing = false;
-      };
-
-      canvas.addEventListener('mousedown', handleStart);
-      canvas.addEventListener('mousemove', handleMove);
-      canvas.addEventListener('mouseup', handleEnd);
-      canvas.addEventListener('touchstart', handleStart, { passive: false });
-      canvas.addEventListener('touchmove', handleMove, { passive: false });
-      canvas.addEventListener('touchend', handleEnd, { passive: false });
-
-      return () => {
-        canvas.removeEventListener('mousedown', handleStart);
-        canvas.removeEventListener('mousemove', handleMove);
-        canvas.removeEventListener('mouseup', handleEnd);
-        canvas.removeEventListener('touchstart', handleStart);
-        canvas.removeEventListener('touchmove', handleMove);
-        canvas.removeEventListener('touchend', handleEnd);
-      };
+      ctx.fillText('Scratch here!', 150, 105);
     }
   }, [showScratchCard, isScratched]);
+
+  // Scratch function
+  const scratch = (clientX: number, clientY: number) => {
+    if (!canvasRef.current || isScratched) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (300 / rect.width);
+    const y = (clientY - rect.top) * (200 / rect.height);
+
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(x, y, 30, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Check if scratched enough
+    const imageData = ctx.getImageData(0, 0, 300, 200);
+    let transparent = 0;
+    for (let i = 3; i < imageData.data.length; i += 4) {
+      if (imageData.data[i] === 0) transparent++;
+    }
+    if (transparent / (imageData.data.length / 4) > 0.4) {
+      setIsScratched(true);
+      confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
+    }
+  };
+
+  const handleScratchStart = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setIsDrawing(true);
+    if ('touches' in e) {
+      scratch(e.touches[0].clientX, e.touches[0].clientY);
+    } else {
+      scratch(e.clientX, e.clientY);
+    }
+  };
+
+  const handleScratchMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    if ('touches' in e) {
+      scratch(e.touches[0].clientX, e.touches[0].clientY);
+    } else {
+      scratch(e.clientX, e.clientY);
+    }
+  };
+
+  const handleScratchEnd = () => {
+    setIsDrawing(false);
+  };
 
   const handleRedeemClick = (offer: any) => {
     confetti({
@@ -294,13 +269,18 @@ function App() {
             </div>
 
             {/* Shake to Win */}
-            <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-4 sm:p-6 text-white shadow-xl">
-              <h3 className="text-lg sm:text-xl font-bold mb-2">🎲 Shake Your Phone!</h3>
+            <div className={`bg-gradient-to-r ${hasShaken ? 'from-gray-400 to-gray-500' : 'from-purple-500 to-pink-500'} rounded-xl p-4 sm:p-6 text-white shadow-xl`}>
+              <h3 className="text-lg sm:text-xl font-bold mb-2">
+                {hasShaken ? '✓ Shake Bonus Claimed!' : '🎲 Shake Your Phone!'}
+              </h3>
               <p className="text-sm sm:text-base mb-3">
-                Shake your device to reveal a surprise bonus offer!
+                {hasShaken
+                  ? 'You already claimed your shake bonus. Reload the page to try again!'
+                  : 'Shake your device to reveal a surprise bonus offer!'
+                }
               </p>
               <div className="bg-white/20 rounded-lg p-2 text-xs sm:text-sm">
-                💡 Tip: Works best on mobile devices
+                {hasShaken ? '🎉 Bonus: 50% off' : '💡 Tip: Works best on mobile devices (one time only)'}
               </div>
             </div>
 
@@ -331,8 +311,17 @@ function App() {
                     </div>
                     <canvas
                       ref={canvasRef}
-                      className="w-full rounded-lg cursor-pointer touch-none"
-                      style={{ maxWidth: '300px', height: '200px', margin: '0 auto', display: 'block' }}
+                      width={300}
+                      height={200}
+                      className="rounded-lg cursor-pointer touch-none"
+                      style={{ maxWidth: '100%', height: 'auto', margin: '0 auto', display: 'block' }}
+                      onMouseDown={handleScratchStart}
+                      onMouseMove={handleScratchMove}
+                      onMouseUp={handleScratchEnd}
+                      onMouseLeave={handleScratchEnd}
+                      onTouchStart={handleScratchStart}
+                      onTouchMove={handleScratchMove}
+                      onTouchEnd={handleScratchEnd}
                     />
                     {isScratched && (
                       <button
